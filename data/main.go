@@ -33,7 +33,7 @@ func BytesFromData(d Data) [16]byte {
 	out[3] = byte(d.Value >> 24)
 	out[2] = byte(d.Value >> 16)
 	out[1] = byte(d.Value >> 8)
-	out[0] = byte(d.Value & 255)
+	out[0] = byte(d.Value)
 	copy(out[4:14], d.Label[:])
 	if d.Active {
 		out[14] = 1
