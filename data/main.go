@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
+	"math/bits"
 	"unsafe"
 )
 
@@ -12,28 +14,41 @@ type Data struct {
 	// padded with 1 byte to make it align
 }
 
+var isLE bool
+
+func init() {
+	var x uint16 = 0xFF00
+	xb := *(*[2]byte)(unsafe.Pointer(&x))
+	isLE = (xb[0] == 0x00)
+}
+
 func DataFromBytesUnsafe(b [16]byte) Data {
-	return *(*Data)(unsafe.Pointer(&b))
+	data := *(*Data)(unsafe.Pointer(&b))
+	if isLE {
+		data.Value = bits.ReverseBytes32(data.Value)
+	}
+	return data
 }
 
 func DataFromBytes(b [16]byte) Data {
 	d := Data{}
-	d.Value = uint32(b[3])<<24 + uint32(b[2])<<16 + uint32(b[1])<<8 + uint32(b[0])
+	d.Value = binary.BigEndian.Uint32(b[:4])
 	copy(d.Label[:], b[4:14])
 	d.Active = b[14] != 0
 	return d
 }
 
 func BytesFromDataUnsafe(d Data) [16]byte {
-	return *(*[16]byte)(unsafe.Pointer(&d))
+	if isLE {
+		d.Value = bits.ReverseBytes32(d.Value)
+	}
+	b := *(*[16]byte)(unsafe.Pointer(&d))
+	return b
 }
 
 func BytesFromData(d Data) [16]byte {
 	out := [16]byte{}
-	out[3] = byte(d.Value >> 24)
-	out[2] = byte(d.Value >> 16)
-	out[1] = byte(d.Value >> 8)
-	out[0] = byte(d.Value)
+	binary.BigEndian.PutUint32(out[:4], d.Value)
 	copy(out[4:14], d.Label[:])
 	if d.Active {
 		out[14] = 1
@@ -49,7 +64,7 @@ func main() {
 	copy(d.Label[:], "Phone")
 	fmt.Println(d, unsafe.Alignof(d), unsafe.Alignof(d.Value), unsafe.Alignof(d.Label), unsafe.Alignof(d.Active))
 
-	b := [16]byte{237, 95, 132, 0, 80, 104, 111, 110, 101, 0, 0, 0, 0, 0, 1, 0}
+	b := [16]byte{0, 132, 95, 237, 80, 104, 111, 110, 101, 0, 0, 0, 0, 0, 1, 0}
 	fmt.Println(b)
 
 	b1 := BytesFromData(d)
